@@ -1,0 +1,2 @@
+[console_scripts]
+rnaseq = rnaseq.rnaseq:main

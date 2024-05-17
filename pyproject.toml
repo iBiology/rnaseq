@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rnaseq"
+version = "0.0.1"
+authors = [
+    {name="FEI YUAN", email="fei.yuan@bcm.edu"},
+]
+description = "rnaseq - a pipeline for processing RNA-Seq data to identify gene differential expression"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = 'MIT'}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    'cmder',
+    'seqflow',
+    'pandas',
+]
+
+[project.scripts]
+rnaseq = "rnaseq.rnaseq:main"
+
