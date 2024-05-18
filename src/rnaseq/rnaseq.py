@@ -15,7 +15,7 @@ from rnaseq import utility, init, pipeline, dega
 def main():
     parser = argparse.ArgumentParser(description=__doc__, prog='rnaseq')
     
-    parser.add_argument('-c', '--comparison', required=True, nargs='+',
+    parser.add_argument('-c', '--comparison', nargs='+',
                         help='Comparisons (in the format of a.vs.c, b.vs.c, ...) needed to '
                              'run gene differential expression analysis')
     parser.add_argument('-o', '--outdir',
