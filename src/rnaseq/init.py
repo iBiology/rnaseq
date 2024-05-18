@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import utility
+from rnaseq import utility
 
 MANIFEST = """####################################################################################################
 # Manifest file for running rnaseq pipeline
