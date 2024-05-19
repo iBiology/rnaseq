@@ -1,3 +1,0 @@
-cmder
-seqflow
-pandas

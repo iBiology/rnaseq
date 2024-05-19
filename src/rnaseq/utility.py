@@ -68,49 +68,8 @@ def guess_strand(bam, bed):
     return data, strand
 
 
-def error_and_exit(message):
-    logger.error(message)
-    sys.exit(1)
-
-
-class File:
-    def __init__(self, path):
-        try:
-            if not Path(path).is_file():
-                error_and_exit(f'File {path} is not a file or does not exist')
-        except Exception as e:
-            error_and_exit(f'Check file {path} failed due to {e}')
-        self.path = Path(path).resolve()
-    
-    def __call__(self, *args, **kwargs):
-        return self.path
-    
-    def __getattr__(self, item):
-        return getattr(self.path, item)
-
-
-class Files:
-    def __init__(self, paths):
-        self.paths = [File(path) for path in paths]
-    
-    def __call__(self, *args, **kwargs):
-        return self.paths
-
-
-class Dir:
-    def __init__(self, path):
-        try:
-            if not Path(path).is_dir():
-                error_and_exit(f'Directory {path} is not a directory or does not exist')
-        except Exception as e:
-            error_and_exit(f'Check directory {path} failed due to {e}')
-        self.path = Path(path).resolve()
-    
-    def __call__(self, *args, **kwargs):
-        return self.path
-    
-    def __getattr__(self, item):
-        return getattr(self.path, item)
+def fastq_basename(fastq):
+    return fastq.name.removesuffix('.fastq').removesuffix('.fastq.gz').removesuffix('.fq').removesuffix('.fq.gz')
 
 
 def load_manifest(args):
@@ -122,9 +81,9 @@ def load_manifest(args):
         logger.error(f'No FASTQ1 column found in manifest file')
         sys.exit(1)
         
-    df['FASTQ1'] = df['FASTQ1'].apply(lambda x: File(x, root=args.manifest.parent))
+    df['FASTQ1'] = df['FASTQ1'].apply(lambda x: cmder.File(x))
     if 'FASTQ2' in df.columns:
-        df['FASTQ2'] = df['FASTQ2'].apply(lambda x: File(x, root=args.manifest.parent))
+        df['FASTQ2'] = df['FASTQ2'].apply(lambda x: cmder.File(x))
     else:
         df['FASTQ2'] = None
     return df

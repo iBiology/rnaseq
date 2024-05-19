@@ -10,8 +10,9 @@ import multiprocessing
 from pathlib import Path
 
 import cmder
+from cmder import File
 import pandas as pd
-from rnaseq import utility
+from rnaseq import utility, tools
 
 
 def find_strand(bam, bed, dry):
@@ -46,37 +47,55 @@ def worker(item):
     return find_strand(*item)
 
 
-def count(args):
-    outdir = utility.mkdir(args)
-    out, output, log = outdir / 'count', outdir / 'count.tsv', outdir / 'count.log'
-    if output.exists():
-        utility.logger.info(f'Feature count output file already exists: {output}')
+def counting(bams, gtf, bed, outdir, cpu, dryrun=False):
+    processes = min(len(bams), cpu)
+    with multiprocessing.Pool(processes=processes) as pool:
+        meta = dict(pool.map(worker, [(bam, bed, dryrun) for bam in bams]))
+    
+    data = set(v[0] for v in meta.values())
+    if len(data) == 1:
+        data = list(data)[0]
     else:
-        processes = min(len(args.bam), args.process)
-        with multiprocessing.Pool(processes=processes) as pool:
-            meta = dict(pool.map(worker, [(bam, args.bed, args.dry) for bam in args.bam]))
+        cmder.logger.error(f'BAM files are mixed with both paired-end and single-end data, cannot proceed')
+    
+    out, output, log = outdir / 'count', outdir / 'count.tsv', outdir / 'count.log'
+    meta = {k: v[1] for k, v in meta.items()}
+    exe = f'featureCounts -p' if data == 'paired' else 'featureCounts'
+    files, strands = [], []
+    for k, v in meta.items():
+        files.append(f'{k}')
+        strands.append(v)
+    
+    files, strand = ' \\\n  '.join(files), ','.join(strands)
+    cmd = f'{exe} \\\n  -a {gtf} \\\n  -s {strand} \\\n  -o {out} \\\n  {files} \\\n  &> {log}'
+    _ = utility.logger.info(cmd) if dryrun else cmder.run(cmd, fmt_cmd=False, exit_on_error=True)
+    
+    df = pd.read_csv(out, sep='\t', skiprows=1)
+    df = df.drop(columns=['Chr', 'Start', 'End', 'Strand', 'Length'])
+    df.columns = [Path(c).name.removesuffix('.bam') for c in df.columns]
+    df.to_csv(output, index=False, sep='\t')
+    cmder.logger.info(f'Feature count saved to {output}')
+
+
+class Count(tools.Pipeline):
+    bam: list[File, ]  # One or multiple BAM files need to count features
+    gtf: File  # Path to a GTF file contains genomic annotations
+    bed: File  # Path to a BED file contains genomic annotations
+    
+    def pre_process(self):
+        output = self.outdir / 'feature.count.tsv'
+        if output.exists():
+            self.logger.info(f'Output file already exists: {output}', terminate=True)
             
-        data = set(v[0] for v in meta.values())
-        if len(data) == 1:
-            data = list(data)[0]
-        else:
-            utility.logger.error(f'BAM files are mixed with both paired-end and single-end data, cannot proceed')
-            sys.exit(1)
-        
-        meta = {k: v[1] for k, v in meta.items()}
-        exe = f'featureCounts -p' if data == 'paired' else 'featureCounts'
-        files, strands = [], []
-        for k, v in meta.items():
-            files.append(f'{k}')
-            strands.append(v)
+    def command(self):
+        bam = ' '.join([bam.path for bam in self.bam])
+        return (f'rnaseq-count -bam {bam} -gtf {self.gtf.path} --bed {self.bed.path} --outdir {self.outdir} '
+                f'--cpu {self.cpu}{self.qvd}')
     
-        files, strand = ' \\\n  '.join(files), ','.join(strands)
-        cmd = f'{exe} \\\n  -a {args.gtf} \\\n  -s {strand} \\\n  -o {out} \\\n  {files} \\\n  &> {log}'
-        _ = utility.logger.info(cmd) if args.dry else cmder.run(cmd, fmt_cmd=False)
-    
-        if out.exists():
-            df = pd.read_csv(out, sep='\t', skiprows=1)
-            df = df.drop(columns=['Chr', 'Start', 'End', 'Strand', 'Length'])
-            df.columns = [Path(c).name.removesuffix('.bam') for c in df.columns]
-            df.to_csv(output, index=False, sep='\t')
-            utility.logger.info(f'Feature count output file created: {output}')
+    def process(self):
+        counting([bam.path for bam in self.bam], self.gtf.path, self.bed.path, self.outdir,
+                 self.cpu, dryrun=self.dryrun)
+
+
+if __name__ == '__main__':
+    Count().parse_args().fire()

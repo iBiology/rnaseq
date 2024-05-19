@@ -5,46 +5,69 @@
 Perform feature counts using featureCount program
 """
 
+from pathlib import Path
+
 import cmder
-from rnaseq import utility
+from cmder import File, Dir
+from rnaseq import utility, tools
 
 
-def star(args):
-    files, outdir = [], utility.mkdir(args)
-    for f1 in args.files:
-        name = f1.name.removesuffix('.r1.fastq.gz')
-        f2 = f1.parent / f1.name.replace('.r1.fastq.gz', '.r2.fastq.gz')
-        bam, log, wd = outdir / f'{name}.bam', outdir / f'{name}.log', outdir / name
-        
-        if args.dry:
-            utility.logger.info(f'Will create directory: {wd}')
+def star(f1, f2, sample_name, outdir, genome, cpu, dryrun=False):
+    bam, log, wd = outdir / f'{sample_name}.bam', outdir / f'{sample_name}.star.log', outdir / sample_name
+    if bam.exists():
+        cmder.logger.info(f'BAM file {bam} exists, skip re-mapping')
+    else:
+        if dryrun:
+            cmder.logger.info(f'Will create directory: {wd}')
         else:
             wd.mkdir(exist_ok=True)
-        
-        cmd = (f'STAR \\\n  --genomeDir {args.genome} \\\n  --runThreadN {args.process} \\\n  --outFileNamePrefix {wd}/'
+    
+        cmd = (f'STAR \\\n  --genomeDir {genome} \\\n  --runThreadN {cpu} \\\n  --outFileNamePrefix {wd}/'
                f' \\\n  --outSAMtype BAM Unsorted \\\n  --outSAMunmapped None')
-        if bam.exists():
-            utility.logger.info(f'BAM file {bam} exists, skip re-mapping')
-            cmd = ''
+        reads = f'{f1} \\\n                {f2}' if f2.exists() else f1
+        cmd = f"{cmd} \\\n  --readFilesCommand 'zcat <' \\\n  --readFilesIn {reads}"
+    
+        cmder.logger.info(f'Mapping reads of sample {sample_name} using STAR')
+        if dryrun:
+            utility.logger.info(cmd)
         else:
-            reads = f'{f1} \\\n                {f2}' if f2.exists() else f1
-            cmd = f"{cmd} \\\n  --readFilesCommand 'zcat <' \\\n  --readFilesIn {reads}"
-
-        if cmd:
-            utility.logger.info(f'Mapping reads of sample {name} using STAR')
-            if args.dry:
-                utility.logger.info(cmd)
+            p = cmder.run(cmd, fmt_cmd=False)
+            if p.returncode:
+                cmder.logger.error(f'STAR failed with return code {p.returncode}')
             else:
-                p = cmder.run(cmd, fmt_cmd=False)
-                if p.returncode:
-                    utility.logger.error(f'STAR failed with return code {p.returncode}')
-                else:
-                    cmder.run(f'mv {wd}/Log.final.out {log}')
-                    memory = int(32 / args.process) or 1
-                    cmder.run(f'samtools sort -@ {args.process} -m {memory}G -o {bam} {wd}/Aligned.out.bam',
-                              exit_on_error=True)
-                    cmder.run(f'samtools index -@ {args.process} {bam}', exit_on_error=True)
-                    cmder.run(f'rm -r {wd}')
-        
-        files.append(bam)
-    return files
+                cmder.run(f'mv {wd}/Log.final.out {log}')
+                memory = int(32 / cpu) or 1
+                cmder.run(f'samtools sort -@ {cpu} -m {memory}G -o {bam} {wd}/Aligned.out.bam',
+                          exit_on_error=True)
+                cmder.run(f'samtools index -@ {cpu} {bam}', exit_on_error=True)
+                cmder.run(f'rm -r {wd}')
+    return bam
+
+
+class STAR(tools.Pipeline):
+    fastq1: File  # Forward read (read 1) FASTQ file(s)
+    fastq2: File = None  # Reverse read (read 2) FASTQ file(s)
+    sample_name: str = ''  # The corresponding sample name of each FASTQ file (or pair)
+    genome: Dir  # Path to STAR the directory contains STAR genome index files
+    
+    def pre_process(self):
+        name = self.sample_name or tools.fastq_basename(self.fastq1.path)
+        bam = self.outdir / f'{name}.bam'
+        if bam.exists():
+            self.logger.info(f'BAM file {bam} exists, skip re-mapping')
+    
+    def process(self):
+        f2 = self.fastq2.path if self.fastq2 else None
+        name = self.sample_name or tools.fastq_basename(self.fastq1.path)
+        star(self.fastq1.path, f2, name, self.outdir, self.genome.path, self.cpu, dryrun=self.dryrun)
+    
+    def command(self):
+        sample_name = f' --sample_name {self.sample_name or tools.fastq_basename(self.fastq1.path)}'
+        f2 = f' --fastq2 {self.fastq2.path}' if self.fastq2 else ''
+        cmd = (f'rnaseq-star --fastq1 {self.fastq1.path}{f2}{sample_name} --outdir {self.outdir} '
+               f'--genome {self.genome.path} --cpu {self.cpu}{self.qvd}')
+        return cmd
+
+
+def main(args):
+    STAR().parse_args().fire()
