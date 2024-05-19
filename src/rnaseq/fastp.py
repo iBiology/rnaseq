@@ -68,7 +68,11 @@ class FASTP(tools.Pipeline):
         cmd = (f'rnaseq-fastp --fastq1 {self.fastq1.path}{f2}{sample_name} --outdir {self.outdir} '
                f'--cpu {self.cpu}{self.qvd}')
         return cmd
-
-
-def main(args):
+    
+    
+def main():
     FASTP().parse_args().fire()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,9 +1,0 @@
-# Example manifest file for run rnaseq pipeline
-# This CSV manifest file should contain at least 2 columns (sample and fastq1)
-# 1. sample: in the format of group_replicate, e.g., p53OE_Veh_1, p53OE_Veh_2, p53OE_Veh_3
-# 2. fastq1: absolute path to the forward strand (read 1) FASTQ file
-# 3. fastq2: absolute path to the reverse strand (read 2) FASTQ file, optional and only for pair-end data
-# The samples in sample column must have at least 1 underscore (_) to be used to right split and
-# thus get group and replicate of each sample
-# Any line (include this line) starts with '#' will be ignore and thus can be deleted
-sample,fastq1,fastq2

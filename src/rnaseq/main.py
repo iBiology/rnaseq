@@ -7,14 +7,14 @@ Run the pipeline
 
 from pathlib import Path
 from cmder import File, Dir
-from rnaseq import utility, fastp, star, count, tools
+from rnaseq import fastp, star, count, tools
 
 
 class RNASeq(tools.Pipeline):
-    manifest: File = None  # Path to a manifest file
-    genome: Dir = None  # Path to STAR the directory contains STAR genome index files
-    gtf: File = None  # Path to a GTF file contains genomic annotations
-    bed: File = None  # Path to a BED file contains genomic annotations
+    manifest: File  # Path to a manifest file
+    genome: Dir  # Path to STAR the directory contains STAR genome index files
+    gtf: File  # Path to a GTF file contains genomic annotations
+    bed: File  # Path to a BED file contains genomic annotations
     
     def pre_process(self):
         self.outdir = self.mkdir(self.outdir or Path.cwd())
@@ -36,22 +36,10 @@ class RNASeq(tools.Pipeline):
             bam = star.star(f1, f2, sample_name, outdir, self.genome.path, self.cpu, dryrun=self.dryrun)
             bams.append(bam)
             
-        
-
-
-def run(args):
-    outdir = utility.mkdir(args)
+            
+def main():
+    RNASeq().parse_args().fire()
     
-    setattr(args, 'outdir', outdir / 'fastp')
-    files = fastp.fastp(args)
     
-    setattr(args, 'files', files)
-    setattr(args, 'outdir', outdir / 'bam')
-    bam = star.star(args)
-    
-    setattr(args, 'bam', bam)
-    setattr(args, 'outdir', outdir / 'count')
-    table = count.count(args)
-    
-    setattr(args, 'table', table)
-    setattr(args, 'outdir', outdir)
+if __name__ == '__main__':
+    main()

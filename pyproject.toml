@@ -19,10 +19,13 @@ classifiers = [
 ]
 dependencies = [
     'cmder',
-    'seqflow',
+    'RSeQC',
     'pandas',
+    'typed-argument-parser'
 ]
 
 [project.scripts]
-rnaseq = "rnaseq.rnaseq:main"
-
+rnaseq = "rnaseq.main:main"
+rnaseq-fastp = "rnaseq.fastp:main"
+rnaseq-star = "rnaseq.star:main"
+rnaseq-count = "rnaseq.count:main"

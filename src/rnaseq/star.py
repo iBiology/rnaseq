@@ -9,7 +9,7 @@ from pathlib import Path
 
 import cmder
 from cmder import File, Dir
-from rnaseq import utility, tools
+from rnaseq import tools
 
 
 def star(f1, f2, sample_name, outdir, genome, cpu, dryrun=False):
@@ -29,7 +29,7 @@ def star(f1, f2, sample_name, outdir, genome, cpu, dryrun=False):
     
         cmder.logger.info(f'Mapping reads of sample {sample_name} using STAR')
         if dryrun:
-            utility.logger.info(cmd)
+            cmder.logger.info(cmd)
         else:
             p = cmder.run(cmd, fmt_cmd=False)
             if p.returncode:
@@ -69,5 +69,9 @@ class STAR(tools.Pipeline):
         return cmd
 
 
-def main(args):
+def main():
     STAR().parse_args().fire()
+    
+    
+if __name__ == '__main__':
+    main()

@@ -12,7 +12,7 @@ from pathlib import Path
 import cmder
 from cmder import File
 import pandas as pd
-from rnaseq import utility, tools
+from rnaseq import tools
 
 
 def find_strand(bam, bed, dry):
@@ -20,11 +20,11 @@ def find_strand(bam, bed, dry):
     data, strand, x, y = 'paired', '0', 0, 0
     
     if dry:
-        utility.logger.info(f'{cmd} [DRYRUN (with fake strandness)]')
+        cmder.logger.info(f'{cmd} [DRYRUN (with fake strandness)]')
     else:
         p = cmder.run(cmd)
         for line in p.stdout.readlines():
-            utility.logger.info(line.strip())
+            cmder.logger.info(line.strip())
             if 'SingleEnd Data' in line:
                 data = 'single'
             if '1++,1--,2+-,2-+' in line or '++,--' in line:
@@ -68,7 +68,7 @@ def counting(bams, gtf, bed, outdir, cpu, dryrun=False):
     
     files, strand = ' \\\n  '.join(files), ','.join(strands)
     cmd = f'{exe} \\\n  -a {gtf} \\\n  -s {strand} \\\n  -o {out} \\\n  {files} \\\n  &> {log}'
-    _ = utility.logger.info(cmd) if dryrun else cmder.run(cmd, fmt_cmd=False, exit_on_error=True)
+    _ = cmder.logger.info(cmd) if dryrun else cmder.run(cmd, fmt_cmd=False, exit_on_error=True)
     
     df = pd.read_csv(out, sep='\t', skiprows=1)
     df = df.drop(columns=['Chr', 'Start', 'End', 'Strand', 'Length'])
@@ -97,5 +97,9 @@ class Count(tools.Pipeline):
                  self.cpu, dryrun=self.dryrun)
 
 
-if __name__ == '__main__':
+def main():
     Count().parse_args().fire()
+    
+    
+if __name__ == '__main__':
+    main()
